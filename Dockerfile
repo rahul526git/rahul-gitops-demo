@@ -1,10 +1,10 @@
-FROM golang:1.21 AS builder
+FROM golang:1.21-alpine AS builder
 WORKDIR /app
-COPY main.go .
-RUN go build -o my-app main.go
-CMD ["./my-app"]
+COPY . .
+RUN go build -o my-app .
 
-FROM scratch
+
+FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/my-app .
 CMD ["./my-app"]
