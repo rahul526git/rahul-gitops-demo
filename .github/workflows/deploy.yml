@@ -1,0 +1,32 @@
+name: CI/CD Docker Pipeline
+
+# यह पाइपलाइन कब चलेगी? जब भी आप 'main' ब्रांच पर अपना कोड 'push' करेंगे
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest # गिटहब बैकग्राउंड में हमारे लिए एकदम नया उबंटू सर्वर चालू करेगा
+
+    steps:
+    # स्टेप 1: गिटहब के सर्वर पर आपका कोड डाउनलोड (Checkout) करना
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # स्टेप 2: गिटहब के सर्वर को आपके डॉकर हब अकाउंट से लॉगिन करवाना (तिजोरी से चाबी निकालकर)
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    # स्टेप 3: इमेज को ऑटोमैटिकली बिल्ड करना और सीधे डॉकर हब पर पुश करना
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        # यहाँ अपनी रिपॉजिटरी का नाम 'rahul-devops-demo' और टैग 'latest' रख रहे हैं
+        tags: rahuldockerhub526/rahul-devops-demo:latest
