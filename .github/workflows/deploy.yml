@@ -1,13 +1,15 @@
-name: CI/CD Smart Docker Pipeline
+name: CI/CD GitOps Pipeline
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
+  # जॉब 1: इमेज बनाना और डॉकर हब पर पुश करना (जो हम पहले कर चुके हैं)
   build-and-push:
     runs-on: ubuntu-latest
-
+    outputs:
+      run_number: ${{ github.run_number }}
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -24,7 +26,33 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        # 🎯 जादू यहाँ है: यह 'latest' के साथ-साथ एक नया नंबर (जैसे v2, v3) भी पुश करेगा
         tags: |
           rahuldockerhub526/rahul-devops-demo:v${{ github.run_number }}
           rahuldockerhub526/rahul-devops-demo:latest
+
+  # 🎯 जॉब 2: यहाँ से नया जादू शुरू होता है (दूसरी रिपो में मैनिफेस्ट अपडेट करना)
+  update-manifest:
+    runs-on: ubuntu-latest
+    needs: build-and-push # यह जॉब तभी चलेगी जब ऊपर वाली इमेज सफ़लतापूर्वक पुश हो जाएगी
+
+    steps:
+    # स्टेप 1: मास्टर चाबी (GITOPS_TOKEN) का इस्तेमाल करके दूसरी रिपोजिटरी को डाउनलोड करना
+    - name: Checkout Manifest Repository
+      uses: actions/checkout@v4
+      with:
+        repository: 'rahul526git/rahul-gitops-manifests' # ध्यान रखिएगा राहुल भाई, यहाँ अगर गिटहब यूजरनेम अलग है तो चेंज कर लीजिएगा
+        token: ${{ secrets.GITOPS_TOKEN }}
+
+    # स्टेप 2: सेड (sed) कमांड का इस्तेमाल करके deployment.yaml में पुराने v3 को नए वर्जन नंबर से बदलना
+    - name: Update Image Tag in Deployment YAML
+      run: |
+        sed -i 's|image: rahuldockerhub526/rahul-devops-demo:.*|image: rahuldockerhub526/rahul-devops-demo:v${{ github.run_number }}|g' deployment.yaml
+
+    # स्टेप 3: चेंज की हुई फाइल को ऑटोमैटिकली दूसरी रिपोजिटरी में वापस पुश कर देना
+    - name: Commit and Push Changes to Manifest Repo
+      run: |
+        git config --global user.email "devops-bot@github.com"
+        git config --global user.name "GitHub Actions Bot"
+        git add deployment.yaml
+        git commit -m "Automated update: Image tag set to v${{ github.run_number }}"
+        git push origin main
